@@ -3,13 +3,13 @@
     <v-row>
       <v-col>
         <div class="d-flex align-center justify-space-between mb-4">
-          <h1 class="text-h4">Pantry</h1>
+          <h1 class="text-h4">{{ $t('optimizer.pantry.title') }}</h1>
           <v-btn
             color="primary"
             prepend-icon="$mdi-plus"
             @click="showCreateDialog = true"
           >
-            Add Item
+            {{ $t('optimizer.pantry.add-item') }}
           </v-btn>
         </div>
 
@@ -19,8 +19,8 @@
         <!-- Empty state -->
         <v-card v-if="!loading && pantryItems.length === 0" variant="outlined" class="pa-8 text-center">
           <v-icon size="64" class="mb-4 text-grey">{{ $globals.icons.foods }}</v-icon>
-          <h3 class="text-h6 mb-2">No pantry items yet</h3>
-          <p class="text-body-2 text-grey">Add items to your pantry to track quantities and get smart shopping lists.</p>
+          <h3 class="text-h6 mb-2">{{ $t('optimizer.pantry.no-items') }}</h3>
+          <p class="text-body-2 text-grey">{{ $t('optimizer.pantry.no-items-description') }}</p>
         </v-card>
 
         <!-- Pantry items list -->
@@ -39,7 +39,7 @@
     <!-- Create dialog -->
     <v-dialog v-model="showCreateDialog" max-width="600">
       <v-card>
-        <v-card-title>Add Pantry Item</v-card-title>
+        <v-card-title>{{ $t('optimizer.pantry.add-pantry-item') }}</v-card-title>
         <v-card-text>
           <v-row>
             <v-col cols="12">
@@ -47,7 +47,7 @@
                 v-model="newItem.food"
                 v-model:item-id="newItem.foodId!"
                 :items="allFoods"
-                label="Food"
+                :label="$t('optimizer.pantry.food')"
                 :icon="$globals.icons.foods"
               />
             </v-col>
@@ -55,7 +55,7 @@
               <v-text-field
                 v-model.number="newItem.quantity"
                 type="number"
-                label="Quantity"
+                :label="$t('optimizer.pantry.quantity')"
                 step="0.1"
                 min="0"
                 :disabled="newItem.assumeEnough"
@@ -66,7 +66,7 @@
                 v-model="newItem.unit"
                 v-model:item-id="newItem.unitId!"
                 :items="allUnits"
-                label="Unit"
+                :label="$t('optimizer.pantry.unit')"
                 :icon="$globals.icons.units"
                 :disabled="newItem.assumeEnough"
               />
@@ -74,7 +74,7 @@
             <v-col cols="12">
               <v-checkbox
                 v-model="newItem.assumeEnough"
-                label="Always available (assume I have enough)"
+                :label="$t('optimizer.pantry.always-available')"
                 hide-details
               />
             </v-col>
@@ -82,7 +82,7 @@
               <v-text-field
                 v-model="newItem.expirationDate"
                 type="date"
-                label="Expiration Date"
+                :label="$t('optimizer.pantry.expiration-date')"
                 clearable
               />
             </v-col>
@@ -90,14 +90,14 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showCreateDialog = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showCreateDialog = false">{{ $t('general.cancel') }}</v-btn>
           <v-btn
             color="primary"
             variant="elevated"
             :loading="creating"
             @click="createItem"
           >
-            Add
+            {{ $t('general.add') }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -106,16 +106,16 @@
     <!-- Delete confirmation -->
     <v-dialog v-model="showDeleteDialog" max-width="400">
       <v-card>
-        <v-card-title>Delete Pantry Item</v-card-title>
+        <v-card-title>{{ $t('optimizer.pantry.delete-pantry-item') }}</v-card-title>
         <v-card-text>
-          Are you sure you want to remove
-          <strong>{{ deleteTarget?.food?.name || deleteTarget?.name || "this item" }}</strong>
-          from your pantry?
+          {{ $t('optimizer.pantry.delete-confirm') }}
+          <strong>{{ deleteTarget?.food?.name || deleteTarget?.name || $t('optimizer.pantry.this-item') }}</strong>
+          {{ $t('optimizer.pantry.delete-confirm-suffix') }}
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
-          <v-btn color="error" variant="elevated" @click="deleteItem">Delete</v-btn>
+          <v-btn variant="text" @click="showDeleteDialog = false">{{ $t('general.cancel') }}</v-btn>
+          <v-btn color="error" variant="elevated" @click="deleteItem">{{ $t('general.delete') }}</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -128,7 +128,8 @@ import type { IngredientFood, IngredientUnit } from "~/lib/api/types/recipe";
 import { useUserApi } from "~/composables/api";
 import { useAsyncKey } from "~/composables/use-utils";
 
-useSeoMeta({ title: "Pantry" });
+const { t } = useI18n();
+useSeoMeta({ title: t('optimizer.pantry.title') });
 
 const userApi = useUserApi();
 

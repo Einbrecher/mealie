@@ -61,3 +61,23 @@ export interface PantryDeficitReport {
   coveredCount: number;
   coveragePercent: number;
 }
+
+export interface PantryDeficitRequest {
+  recipeIds: string[];
+  excludeExpired?: boolean;
+}
+
+export interface PantryMealPlanDeficitRequest {
+  startDate: string;
+  endDate: string;
+  excludeExpired?: boolean;
+}
+
+export interface PantryImportResult {
+  importedCount: number;
+  skippedCount: number;
+}
+
+export interface PantryDeductRequest {
+  recipeId: string;
+}

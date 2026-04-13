@@ -2,9 +2,8 @@ from uuid import uuid4
 
 import pytest
 
-from mealie.schema.optimizer.pantry import PantryDeficitItem, PantryDeficitReport, PantryItemOut
+from mealie.schema.optimizer.pantry import PantryDeficitReport, PantryItemOut
 from mealie.schema.recipe.recipe_ingredient import (
-    CreateIngredientUnit,
     IngredientFood,
     IngredientUnit,
     RecipeIngredient,
@@ -53,15 +52,18 @@ def _make_pantry_item(
     quantity: float | None = 5.0,
     unit: IngredientUnit | None = None,
     assume_enough: bool = False,
+    expiration_date=None,
 ) -> PantryItemOut:
     return PantryItemOut(
         id=uuid4(),
+        group_id=uuid4(),
         household_id=uuid4(),
         food_id=food.id,
         food=food,
         quantity=quantity,
         unit=unit,
         assume_enough=assume_enough,
+        expiration_date=expiration_date,
     )
 
 
@@ -237,3 +239,169 @@ class CheckShoppingItemsTests:
         result = self._check([item], [])
         assert result[0].checked is False
         assert result[0].quantity == 5.0
+
+
+class ExpirationFilterTests:
+    """Tests for calculate_deficit with exclude_expired parameter."""
+
+    def _calculate(
+        self,
+        ingredients: list[RecipeIngredient],
+        pantry_items: list[PantryItemOut],
+        exclude_expired: bool = False,
+    ) -> PantryDeficitReport:
+        service = object.__new__(PantryService)
+        from mealie.services.parser_services.parser_utils import UnitConverter
+
+        service.converter = UnitConverter()
+        return service.calculate_deficit(ingredients, pantry_items=pantry_items, exclude_expired=exclude_expired)
+
+    def test_expired_items_excluded_when_flag_set(self):
+        """Pantry item with past expiration_date excluded when exclude_expired=True."""
+        from datetime import UTC, datetime, timedelta
+
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        yesterday = datetime.now(UTC).date() - timedelta(days=1)
+        pantry = _make_pantry_item(food, quantity=10.0, unit=unit, expiration_date=yesterday)
+        ingredient = _make_ingredient(food=food, quantity=3.0, unit=unit)
+        report = self._calculate([ingredient], [pantry], exclude_expired=True)
+        # Expired pantry item excluded → no match → full deficit
+        assert report.items[0].covered is False
+        assert report.items[0].deficit == 3.0
+
+    def test_expired_items_included_when_flag_false(self):
+        """Pantry item with past expiration_date included when exclude_expired=False."""
+        from datetime import UTC, datetime, timedelta
+
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        yesterday = datetime.now(UTC).date() - timedelta(days=1)
+        pantry = _make_pantry_item(food, quantity=10.0, unit=unit, expiration_date=yesterday)
+        ingredient = _make_ingredient(food=food, quantity=3.0, unit=unit)
+        report = self._calculate([ingredient], [pantry], exclude_expired=False)
+        # Expired but flag off → still counts
+        assert report.items[0].covered is True
+        assert report.items[0].deficit == 0
+
+    def test_items_without_expiration_always_included(self):
+        """Pantry items with no expiration_date are always included."""
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        pantry = _make_pantry_item(food, quantity=10.0, unit=unit, expiration_date=None)
+        ingredient = _make_ingredient(food=food, quantity=3.0, unit=unit)
+        report = self._calculate([ingredient], [pantry], exclude_expired=True)
+        assert report.items[0].covered is True
+        assert report.items[0].deficit == 0
+
+
+class DeductRecipeTests:
+    """Tests for PantryService.deduct_recipe."""
+
+    def _make_service_with_pantry(self, pantry_items: list[PantryItemOut]):
+        """Create a PantryService with mocked pantry_items repo."""
+        from unittest.mock import MagicMock
+
+        service = object.__new__(PantryService)
+        from mealie.services.parser_services.parser_utils import UnitConverter
+
+        service.converter = UnitConverter()
+
+        mock_repo = MagicMock()
+        mock_repo.get_all.return_value = pantry_items
+
+        # Track update calls and return updated items
+        def update_side_effect(item_id, data):
+            for item in pantry_items:
+                if item.id == item_id:
+                    updated = item.model_copy(update=data if isinstance(data, dict) else data.model_dump())
+                    return updated
+            return None
+
+        mock_repo.update.side_effect = update_side_effect
+        service.pantry_items = mock_repo
+        return service
+
+    def test_deduct_reduces_pantry_quantity(self):
+        """5 in pantry, recipe needs 3 → pantry becomes 2."""
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        pantry = _make_pantry_item(food, quantity=5.0, unit=unit)
+        ingredient = _make_ingredient(food=food, quantity=3.0, unit=unit)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient])
+        assert len(result) == 1
+        assert result[0].quantity == 2.0
+
+    def test_deduct_clamps_to_zero(self):
+        """2 in pantry, recipe needs 5 → pantry becomes 0."""
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        pantry = _make_pantry_item(food, quantity=2.0, unit=unit)
+        ingredient = _make_ingredient(food=food, quantity=5.0, unit=unit)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient])
+        assert len(result) == 1
+        assert result[0].quantity == 0.0
+
+    def test_deduct_skips_assume_enough(self):
+        """assume_enough=True → quantity unchanged."""
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        pantry = _make_pantry_item(food, quantity=5.0, unit=unit, assume_enough=True)
+        ingredient = _make_ingredient(food=food, quantity=3.0, unit=unit)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient])
+        assert len(result) == 0  # No items modified
+
+    def test_deduct_skips_untracked_quantity(self):
+        """quantity=None → unchanged."""
+        food = _make_food()
+        pantry = _make_pantry_item(food, quantity=None)
+        ingredient = _make_ingredient(food=food, quantity=3.0)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient])
+        assert len(result) == 0
+
+    def test_deduct_skips_incompatible_units(self):
+        """Incompatible units → unchanged."""
+        food = _make_food()
+        recipe_unit = _make_unit("clove", "clove", 1.0)
+        pantry_unit = _make_unit("gram", "gram", 1.0)
+        pantry = _make_pantry_item(food, quantity=50.0, unit=pantry_unit)
+        ingredient = _make_ingredient(food=food, quantity=3.0, unit=recipe_unit)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient])
+        assert len(result) == 0
+
+    def test_deduct_handles_unit_conversion(self):
+        """Recipe in grams, pantry in kg → correctly converts and deducts."""
+        food = _make_food()
+        recipe_unit = _make_unit("gram", "gram", 1.0)
+        pantry_unit = _make_unit("kilogram", "kilogram", 1.0)
+        pantry = _make_pantry_item(food, quantity=1.0, unit=pantry_unit)
+        ingredient = _make_ingredient(food=food, quantity=500.0, unit=recipe_unit)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient])
+        assert len(result) == 1
+        assert result[0].quantity == pytest.approx(0.5, abs=0.01)
+
+    def test_deduct_accumulates_duplicate_food_ids(self):
+        """Same food in multiple recipe sections → deductions accumulate."""
+        food = _make_food()
+        unit = _make_unit("cup", "cup")
+        pantry = _make_pantry_item(food, quantity=10.0, unit=unit)
+        # Two ingredient lines for the same food (e.g., flour in dough + flour in topping)
+        ingredient1 = _make_ingredient(food=food, quantity=4.0, unit=unit)
+        ingredient2 = _make_ingredient(food=food, quantity=3.0, unit=unit)
+
+        service = self._make_service_with_pantry([pantry])
+        result = service.deduct_recipe([ingredient1, ingredient2])
+        assert len(result) == 1
+        assert result[0].quantity == 3.0  # 10 - 4 - 3 = 3

@@ -13,6 +13,9 @@ def pantry_item_url(item_id: str | UUID4) -> str:
 
 
 DEFICIT_URL = f"{PANTRY_URL}/deficit"
+MEAL_PLAN_DEFICIT_URL = f"{PANTRY_URL}/deficit/meal-plan"
+IMPORT_ON_HAND_URL = f"{PANTRY_URL}/import-on-hand"
+DEDUCT_URL = f"{PANTRY_URL}/deduct"
 
 
 @pytest.fixture(scope="function")
@@ -104,7 +107,9 @@ class PantryItemsCRUDTests:
 class PantryDeficitTests:
     def test_deficit_calculation(self, api_client: TestClient, unique_user: TestUser):
         """POST /deficit with empty recipe_ids returns empty report."""
-        response = api_client.post(DEFICIT_URL, json=[], headers=unique_user.token)
+        response = api_client.post(
+            DEFICIT_URL, json={"recipeIds": [], "excludeExpired": False}, headers=unique_user.token
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["totalItems"] == 0
@@ -129,3 +134,87 @@ class PantryHouseholdIsolationTests:
 
         # Cleanup
         api_client.delete(pantry_item_url(item_id), headers=unique_user.token)
+
+
+class PantryDeficitExpirationTests:
+    def test_deficit_with_exclude_expired(self, api_client: TestClient, unique_user: TestUser):
+        """POST /deficit with excludeExpired=true should exclude expired pantry items."""
+        # Create a pantry item with a past expiration date
+        payload = {
+            "name": "Expired Milk",
+            "quantity": 5.0,
+            "expirationDate": "2020-01-01",
+        }
+        response = api_client.post(PANTRY_URL, json=payload, headers=unique_user.token)
+        assert response.status_code == 201
+        item_id = response.json()["id"]
+
+        # Deficit with exclude_expired=true — empty recipe_ids but confirms endpoint works
+        response = api_client.post(
+            DEFICIT_URL,
+            json={"recipeIds": [], "excludeExpired": True},
+            headers=unique_user.token,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["coveragePercent"] == 100.0
+
+        # Cleanup
+        api_client.delete(pantry_item_url(item_id), headers=unique_user.token)
+
+
+class PantryMealPlanDeficitTests:
+    def test_meal_plan_deficit_empty_range(self, api_client: TestClient, unique_user: TestUser):
+        """POST /deficit/meal-plan with date range containing no meals returns 100% coverage."""
+        response = api_client.post(
+            MEAL_PLAN_DEFICIT_URL,
+            json={"startDate": "2099-01-01", "endDate": "2099-01-07", "excludeExpired": False},
+            headers=unique_user.token,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["totalItems"] == 0
+        assert data["coveragePercent"] == 100.0
+
+    def test_meal_plan_deficit_invalid_range(self, api_client: TestClient, unique_user: TestUser):
+        """POST /deficit/meal-plan with start_date > end_date returns 422."""
+        response = api_client.post(
+            MEAL_PLAN_DEFICIT_URL,
+            json={"startDate": "2026-01-10", "endDate": "2026-01-01"},
+            headers=unique_user.token,
+        )
+        assert response.status_code == 422
+
+
+class PantryImportOnHandTests:
+    def test_import_on_hand_returns_result(self, api_client: TestClient, unique_user: TestUser):
+        """POST /import-on-hand returns import result with counts."""
+        response = api_client.post(IMPORT_ON_HAND_URL, json={}, headers=unique_user.token)
+        assert response.status_code == 200
+        data = response.json()
+        assert "importedCount" in data
+        assert "skippedCount" in data
+        assert data["importedCount"] >= 0
+        assert data["skippedCount"] >= 0
+
+    def test_import_on_hand_idempotent(self, api_client: TestClient, unique_user: TestUser):
+        """POST /import-on-hand twice: second call should import 0."""
+        api_client.post(IMPORT_ON_HAND_URL, json={}, headers=unique_user.token)
+        response = api_client.post(IMPORT_ON_HAND_URL, json={}, headers=unique_user.token)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["importedCount"] == 0
+
+
+class PantryDeductTests:
+    def test_deduct_nonexistent_recipe(self, api_client: TestClient, unique_user: TestUser):
+        """POST /deduct with nonexistent recipe_id returns empty list."""
+        from uuid import uuid4
+
+        response = api_client.post(
+            DEDUCT_URL,
+            json={"recipeId": str(uuid4())},
+            headers=unique_user.token,
+        )
+        assert response.status_code == 200
+        assert response.json() == []

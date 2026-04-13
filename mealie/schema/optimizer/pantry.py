@@ -21,6 +21,10 @@ __all__ = [
     "PantryItemPagination",
     "PantryDeficitItem",
     "PantryDeficitReport",
+    "PantryDeficitRequest",
+    "PantryMealPlanDeficitRequest",
+    "PantryImportResult",
+    "PantryDeductRequest",
 ]
 
 
@@ -101,3 +105,38 @@ class PantryDeficitReport(MealieModel):
     total_items: int
     covered_count: int
     coverage_percent: float
+
+
+class PantryDeficitRequest(MealieModel):
+    """Request body for POST /deficit — replaces bare list[UUID4]."""
+
+    recipe_ids: list[UUID4]
+    exclude_expired: bool = False
+
+
+class PantryMealPlanDeficitRequest(MealieModel):
+    """Request body for POST /deficit/meal-plan."""
+
+    start_date: date
+    end_date: date
+    exclude_expired: bool = False
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> PantryMealPlanDeficitRequest:
+        """Ensure start_date <= end_date."""
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must be <= end_date")
+        return self
+
+
+class PantryImportResult(MealieModel):
+    """Response for POST /import-on-hand."""
+
+    imported_count: int
+    skipped_count: int
+
+
+class PantryDeductRequest(MealieModel):
+    """Request body for POST /deduct."""
+
+    recipe_id: UUID4

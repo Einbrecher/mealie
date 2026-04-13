@@ -1480,5 +1480,23 @@
     "mark-all-as-read": "Mark All as Read",
     "show-announcements-from-mealie": "Show announcements from Mealie",
     "show-announcements-setting-description": "Whether or not you want to allow users to see announcements from Mealie. When enabled users can still opt-out from seeing them in their user settings"
+  },
+  "optimizer": {
+    "pantry": {
+      "title": "Pantry",
+      "add-item": "Add Item",
+      "add-pantry-item": "Add Pantry Item",
+      "no-items": "No pantry items yet",
+      "no-items-description": "Add items to your pantry to track quantities and get smart shopping lists.",
+      "food": "Food",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "always-available": "Always available (assume I have enough)",
+      "expiration-date": "Expiration Date",
+      "delete-pantry-item": "Delete Pantry Item",
+      "delete-confirm": "Are you sure you want to remove",
+      "delete-confirm-suffix": "from your pantry?",
+      "this-item": "this item"
+    }
   }
 }
