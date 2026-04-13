@@ -24,6 +24,7 @@ import { MultiPurposeLabelsApi } from "./user/group-multiple-purpose-labels";
 import { GroupEventNotifierApi } from "./user/group-event-notifier";
 import { MealPlanRulesApi } from "./user/group-mealplan-rules";
 import { GroupDataSeederApi } from "./user/group-seeder";
+import { OptimizerApi } from "./user/optimizer-pantry";
 import type { ApiRequestInstance } from "~/lib/api/types/non-generated";
 
 export class UserApiClient {
@@ -51,6 +52,7 @@ export class UserApiClient {
   public shopping: ShoppingApi;
   public multiPurposeLabels: MultiPurposeLabelsApi;
   public groupEventNotifier: GroupEventNotifierApi;
+  public optimizer: OptimizerApi;
   public upload: UploadFile;
   public seeders: GroupDataSeederApi;
 
@@ -91,6 +93,7 @@ export class UserApiClient {
     this.email = new EmailAPI(requests);
     this.bulk = new BulkActionsAPI(requests);
     this.groupEventNotifier = new GroupEventNotifierApi(requests);
+    this.optimizer = new OptimizerApi(requests);
 
     Object.freeze(this);
   }

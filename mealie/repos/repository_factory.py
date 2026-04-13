@@ -27,6 +27,7 @@ from mealie.db.models.household.shopping_list import (
 from mealie.db.models.household.webhooks import GroupWebhooksModel
 from mealie.db.models.labels import MultiPurposeLabel
 from mealie.db.models.recipe.category import Category
+from mealie.db.models.optimizer.pantry import PantryItemModel
 from mealie.db.models.recipe.comment import RecipeComment
 from mealie.db.models.recipe.ingredient import IngredientFoodModel, IngredientUnitModel
 from mealie.db.models.recipe.recipe import RecipeModel
@@ -37,6 +38,7 @@ from mealie.db.models.recipe.tool import Tool
 from mealie.db.models.users import LongLiveToken, User
 from mealie.db.models.users.password_reset import PasswordResetModel
 from mealie.db.models.users.user_to_recipe import UserToRecipe
+from mealie.repos.optimizer.pantry import RepositoryPantryItem
 from mealie.repos.repository_cookbooks import RepositoryCookbooks
 from mealie.repos.repository_foods import RepositoryFood
 from mealie.repos.repository_household import RepositoryHousehold, RepositoryHouseholdRecipes
@@ -61,6 +63,7 @@ from mealie.schema.household.webhook import ReadWebhook
 from mealie.schema.labels import MultiPurposeLabelOut
 from mealie.schema.meal_plan.new_meal import ReadPlanEntry
 from mealie.schema.meal_plan.plan_rules import PlanRulesOut
+from mealie.schema.optimizer.pantry import PantryItemOut
 from mealie.schema.recipe import Recipe, RecipeCommentOut, RecipeToolOut
 from mealie.schema.recipe.recipe_category import CategoryOut, TagOut
 from mealie.schema.recipe.recipe_ingredient import IngredientFood, IngredientUnit
@@ -361,6 +364,20 @@ class AllRepositories:
     def group_multi_purpose_labels(self) -> GroupRepositoryGeneric[MultiPurposeLabelOut, MultiPurposeLabel]:
         return GroupRepositoryGeneric(
             self.session, PK_ID, MultiPurposeLabel, MultiPurposeLabelOut, group_id=self.group_id
+        )
+
+    # ================================================================
+    # Optimizer
+
+    @cached_property
+    def pantry_items(self) -> RepositoryPantryItem:
+        return RepositoryPantryItem(
+            self.session,
+            PK_ID,
+            PantryItemModel,
+            PantryItemOut,
+            group_id=self.group_id,
+            household_id=self.household_id,
         )
 
     # ================================================================

@@ -247,6 +247,12 @@ const topLinks = computed<SideBarLink[]>(() => [
     restricted: true,
   },
   {
+    icon: $globals.icons.pantry,
+    title: "Pantry",
+    to: `/g/${groupSlug.value}/optimizer/pantry`,
+    restricted: true,
+  },
+  {
     icon: $globals.icons.timelineText,
     title: i18n.t("recipe.timeline"),
     to: `/g/${groupSlug.value}/recipes/timeline`,

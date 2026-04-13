@@ -175,6 +175,13 @@ class ShoppingListService:
                 consolidated_create_items.append(create_item)
 
         create_items = consolidated_create_items
+        # Apply pantry coverage: auto-check covered items, reduce partial quantities
+        try:
+            from mealie.services.optimizer.pantry import PantryService
+
+            create_items = PantryService(self.repos).check_shopping_items(create_items)
+        except Exception:
+            pass  # Pantry integration is non-critical; degrade gracefully
         filtered_create_items: list[ShoppingListItemCreate] = []
 
         # check to see if we can merge into any existing items
