@@ -2,6 +2,10 @@ name: mealie-custom
 
 services:
   mealie:
+    # :mealie-next is a moving tag (always latest build from the branch).
+    # For rollback safety, pin an immutable tag instead, e.g.:
+    #   image: ghcr.io/einbrecher/mealie:v1.1.0-7-ga182b55
+    # Available immutable tags: semver tags, git-describe tags, and full commit SHAs.
     image: ghcr.io/einbrecher/mealie:mealie-next
     container_name: mealie-custom
     restart: unless-stopped

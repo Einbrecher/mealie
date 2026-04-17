@@ -61,6 +61,10 @@ COPY mealie ./mealie
 # Copy frontend to package it into the wheel
 COPY --from=frontend-builder /frontend/dist ./mealie/frontend
 
+# Stamp runtime version (shown in Mealie's About page) from build arg
+ARG APP_VERSION=develop
+RUN sed -i "s#^__version__ = .*#__version__ = \"${APP_VERSION}\"#" mealie/__init__.py
+
 # Build the source and binary package
 RUN uv build --out-dir dist
 
@@ -117,6 +121,11 @@ ENV TESTING=false
 
 ARG COMMIT
 ENV GIT_COMMIT_HASH=$COMMIT
+
+ARG APP_VERSION=develop
+LABEL org.opencontainers.image.source="https://github.com/Einbrecher/mealie"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
+LABEL org.opencontainers.image.revision="${COMMIT}"
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
