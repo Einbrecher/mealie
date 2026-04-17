@@ -24,6 +24,10 @@ class PantryItemModel(SqlAlchemyBase, BaseMixins):
             "food_id IS NOT NULL OR name IS NOT NULL",
             name="pantry_item_food_or_name_check",
         ),
+        CheckConstraint(
+            "use_priority IN ('auto', 'high', 'low')",
+            name="pantry_item_use_priority_check",
+        ),
     )
 
     id: Mapped[GUID] = mapped_column(GUID, primary_key=True, default=GUID.generate)
@@ -36,6 +40,7 @@ class PantryItemModel(SqlAlchemyBase, BaseMixins):
     quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
     unit_id: Mapped[GUID | None] = mapped_column(GUID, ForeignKey("ingredient_units.id"), nullable=True)
     expiration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    use_priority: Mapped[str] = mapped_column(String, nullable=False, default="auto", server_default="auto")
 
     # Relationships
     food: Mapped[IngredientFoodModel | None] = relationship(  # type: ignore

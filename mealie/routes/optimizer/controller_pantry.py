@@ -8,6 +8,7 @@ from mealie.routes._base.base_controllers import BaseCrudController
 from mealie.routes._base.controller import controller
 from mealie.routes._base.mixins import HttpRepo
 from mealie.schema.optimizer.pantry import (
+    OnHandCountResponse,
     PantryDeductRequest,
     PantryDeficitReport,
     PantryDeficitRequest,
@@ -18,6 +19,8 @@ from mealie.schema.optimizer.pantry import (
     PantryItemSave,
     PantryItemUpdate,
     PantryMealPlanDeficitRequest,
+    PantryQuickAddRequest,
+    ShoppingItemDeductRequest,
 )
 from mealie.schema.response.pagination import PaginationQuery
 from mealie.services.optimizer.pantry import PantryService
@@ -47,6 +50,12 @@ class PantryItemController(BaseCrudController):
 
     # All POST endpoints must be before /{item_id} to avoid route conflict
 
+    @router.get("/on-hand-count", response_model=OnHandCountResponse)
+    def get_on_hand_count(self) -> OnHandCountResponse:
+        """Return count of ingredient foods marked on-hand for the household."""
+        count = self.service.get_on_hand_count()
+        return OnHandCountResponse(count=count)
+
     @router.post("/deficit", response_model=PantryDeficitReport)
     def calculate_deficit(self, data: PantryDeficitRequest) -> PantryDeficitReport:
         """Calculate pantry deficit for given recipes."""
@@ -74,6 +83,17 @@ class PantryItemController(BaseCrudController):
         """Deduct recipe ingredient quantities from pantry."""
         ingredients = get_ingredients_for_recipes(self.session, self.group_id, [data.recipe_id])
         return self.service.deduct_recipe(ingredients)
+
+    @router.post("/deduct-shopping-items", response_model=list[PantryItemOut])
+    def deduct_shopping_items(self, data: ShoppingItemDeductRequest) -> list[PantryItemOut]:
+        """Deduct shopping list item quantities from pantry."""
+        return self.service.deduct_shopping_items(data.shopping_list_item_ids)
+
+    @router.post("/quick-add", response_model=list[PantryItemOut], status_code=201)
+    def quick_add(self, data: PantryQuickAddRequest) -> list[PantryItemOut]:
+        """Create pantry items from shopping list data."""
+        tuples = [(item.food_id, item.quantity, item.unit_id) for item in data.items]
+        return self.service.quick_add_from_shopping(tuples, self.group_id, self.household_id)
 
     @router.get("", response_model=PantryItemPagination)
     def get_all(self, q: PaginationQuery = Depends()):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from math import ceil
 from typing import Any
@@ -177,6 +177,26 @@ class RepositoryGeneric[Schema: MealieModel, Model: SqlAlchemyBase]:
             return None
 
         return eff_schema.model_validate(result)
+
+    def get_many(
+        self,
+        values: Sequence[str | int | UUID4],
+        key: str | None = None,
+        override_schema: type | None = None,
+    ) -> list[Schema]:
+        """Batch-fetch multiple records by primary key or named column.
+        Uses SQL IN() with tenant scoping from _filter_builder().
+        Returns empty list for empty input. Order is NOT guaranteed to match input.
+        Missing IDs are silently excluded from results (no error)."""
+        if not values:
+            return []
+
+        key = key or self.primary_key
+        eff_schema = override_schema or self.schema
+        col = getattr(self.model, key)
+        q = self._query(override_schema=eff_schema).filter(col.in_(values)).filter_by(**self._filter_builder())
+        results = self.session.execute(q).unique().scalars().all()
+        return [eff_schema.model_validate(x) for x in results]
 
     def create(self, data: Schema | BaseModel | dict) -> Schema:
         try:

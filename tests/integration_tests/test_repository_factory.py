@@ -362,3 +362,103 @@ def test_changing_user_changes_household(session: Session):
     assert len(items) == 1
     assert items[0].id == shopping_list.id
     assert household_1_repos.group_shopping_lists.page_all(PaginationQuery(page=1, per_page=-1)).items == []
+
+
+def test_get_many_empty_input_returns_empty_list(session: Session):
+    unfiltered_repos = get_repositories(session, group_id=None, household_id=None)
+    assert unfiltered_repos.ingredient_foods.get_many([]) == []
+
+
+def test_get_many_returns_all_matching_ids(session: Session):
+    unfiltered_repos = get_repositories(session, group_id=None, household_id=None)
+    group = unfiltered_repos.groups.create({"name": random_string()})
+    group_repos = get_repositories(session, group_id=group.id, household_id=None)
+
+    f1 = group_repos.ingredient_foods.create(SaveIngredientFood(id=uuid4(), group_id=group.id, name=random_string()))
+    f2 = group_repos.ingredient_foods.create(SaveIngredientFood(id=uuid4(), group_id=group.id, name=random_string()))
+    f3 = group_repos.ingredient_foods.create(SaveIngredientFood(id=uuid4(), group_id=group.id, name=random_string()))
+
+    result = group_repos.ingredient_foods.get_many([f1.id, f2.id, f3.id])
+
+    assert {r.id for r in result} == {f1.id, f2.id, f3.id}
+
+
+def test_get_many_silently_excludes_missing_ids(session: Session):
+    unfiltered_repos = get_repositories(session, group_id=None, household_id=None)
+    group = unfiltered_repos.groups.create({"name": random_string()})
+    group_repos = get_repositories(session, group_id=group.id, household_id=None)
+
+    f1 = group_repos.ingredient_foods.create(SaveIngredientFood(id=uuid4(), group_id=group.id, name=random_string()))
+    f2 = group_repos.ingredient_foods.create(SaveIngredientFood(id=uuid4(), group_id=group.id, name=random_string()))
+
+    result = group_repos.ingredient_foods.get_many([f1.id, f2.id, uuid4(), uuid4()])
+
+    assert len(result) == 2
+    assert {r.id for r in result} == {f1.id, f2.id}
+
+
+def test_get_many_respects_tenant_scoping(session: Session):
+    unfiltered_repos = get_repositories(session, group_id=None, household_id=None)
+    group_1 = unfiltered_repos.groups.create({"name": random_string()})
+    group_2 = unfiltered_repos.groups.create({"name": random_string()})
+
+    group_1_repos = get_repositories(session, group_id=group_1.id, household_id=None)
+    group_2_repos = get_repositories(session, group_id=group_2.id, household_id=None)
+
+    food_1 = group_1_repos.ingredient_foods.create(
+        SaveIngredientFood(id=uuid4(), group_id=group_1.id, name=random_string())
+    )
+    food_2 = group_2_repos.ingredient_foods.create(
+        SaveIngredientFood(id=uuid4(), group_id=group_2.id, name=random_string())
+    )
+
+    g1_result = group_1_repos.ingredient_foods.get_many([food_1.id, food_2.id])
+    assert {r.id for r in g1_result} == {food_1.id}
+
+    g2_result = group_2_repos.ingredient_foods.get_many([food_1.id, food_2.id])
+    assert {r.id for r in g2_result} == {food_2.id}
+
+    unfiltered_result = unfiltered_repos.ingredient_foods.get_many([food_1.id, food_2.id])
+    assert {r.id for r in unfiltered_result} == {food_1.id, food_2.id}
+
+
+def test_get_many_supports_named_key(session: Session):
+    unfiltered_repos = get_repositories(session, group_id=None, household_id=None)
+    group = unfiltered_repos.groups.create({"name": random_string()})
+    group_repos = get_repositories(session, group_id=group.id, household_id=None)
+    household_1 = group_repos.households.create({"name": random_string(), "group_id": group.id})
+    household_2 = group_repos.households.create({"name": random_string(), "group_id": group.id})
+
+    user_1 = group_repos.users.create(
+        {
+            "username": random_string(),
+            "email": random_email(),
+            "group": group.name,
+            "household": household_1.name,
+            "full_name": random_string(),
+            "password": random_string(),
+            "admin": False,
+        }
+    )
+    user_2 = group_repos.users.create(
+        {
+            "username": random_string(),
+            "email": random_email(),
+            "group": group.name,
+            "household": household_2.name,
+            "full_name": random_string(),
+            "password": random_string(),
+            "admin": False,
+        }
+    )
+
+    household_1_repos = get_repositories(session, group_id=group.id, household_id=household_1.id)
+    household_2_repos = get_repositories(session, group_id=group.id, household_id=household_2.id)
+    recipe_1 = household_1_repos.recipes.create(Recipe(user_id=user_1.id, group_id=group.id, name=random_string()))
+    recipe_2 = household_2_repos.recipes.create(Recipe(user_id=user_2.id, group_id=group.id, name=random_string()))
+
+    scoped_result = household_1_repos.recipes.get_many([recipe_1.slug, recipe_2.slug], key="slug")
+    assert {r.id for r in scoped_result} == {recipe_1.id}
+
+    unfiltered_result = unfiltered_repos.recipes.get_many([recipe_1.slug, recipe_2.slug], key="slug")
+    assert {r.id for r in unfiltered_result} == {recipe_1.id, recipe_2.id}

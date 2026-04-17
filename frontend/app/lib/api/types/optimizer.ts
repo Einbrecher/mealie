@@ -15,6 +15,7 @@ export interface PantryItemCreate {
   quantity?: number | null;
   unitId?: string | null;
   expirationDate?: string | null;
+  usePriority?: "auto" | "high" | "low";
 }
 
 export interface PantryItemUpdate extends PantryItemCreate {
@@ -80,4 +81,64 @@ export interface PantryImportResult {
 
 export interface PantryDeductRequest {
   recipeId: string;
+}
+
+export interface ShoppingItemDeductRequest {
+  shoppingListItemIds: string[];
+}
+
+export interface PantryQuickAddItem {
+  foodId: string;
+  quantity?: number | null;
+  unitId?: string | null;
+}
+
+export interface PantryQuickAddRequest {
+  items: PantryQuickAddItem[];
+}
+
+export interface OnHandCountResponse {
+  count: number;
+}
+
+// --- Optimizer Config ---
+
+export interface OptimizerConfigUpdate {
+  overlapWeight: number;
+  pantryUtilizationWeight: number;
+  pantryUrgencyWeight: number;
+  proteinDiversityWeight: number;
+  categoryBalanceWeight: number;
+  ratingWeight: number;
+  slotOverlapPenaltyWeight: number;
+  prepTimeBudgetMinutes: number | null;
+  perishableLabelKeywords: string[];
+  shelfStableLabelKeywords: string[];
+  expirationWarningDays: number;
+  onboardingCompleted: boolean;
+}
+
+export interface OptimizerConfigOut extends OptimizerConfigUpdate {
+  id: string;
+  groupId: string;
+  householdId: string;
+}
+
+// --- Recipe-Foods Projection ---
+
+export interface RecipeFoodProjection {
+  recipeId: string;
+  slug: string;
+  name: string;
+  foodIds: string[];
+  categoryIds: string[];
+  tagIds: string[];
+  rating: number | null;
+  totalTime: string | null;
+  lastMade: string | null;
+}
+
+export interface RecipeFoodProjectionResponse {
+  items: RecipeFoodProjection[];
+  unlinkedRecipeCount: number;
 }

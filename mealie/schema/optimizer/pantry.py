@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import UUID4, ConfigDict, model_validator
 from sqlalchemy.orm import joinedload
@@ -25,6 +26,10 @@ __all__ = [
     "PantryMealPlanDeficitRequest",
     "PantryImportResult",
     "PantryDeductRequest",
+    "ShoppingItemDeductRequest",
+    "PantryQuickAddItem",
+    "PantryQuickAddRequest",
+    "OnHandCountResponse",
 ]
 
 
@@ -36,6 +41,7 @@ class PantryItemCreate(MealieModel):
     quantity: float | None = None
     unit_id: UUID4 | None = None
     expiration_date: date | None = None
+    use_priority: Literal["auto", "high", "low"] = "auto"
 
     @model_validator(mode="after")
     def validate_food_or_name(self) -> PantryItemCreate:
@@ -140,3 +146,29 @@ class PantryDeductRequest(MealieModel):
     """Request body for POST /deduct."""
 
     recipe_id: UUID4
+
+
+class ShoppingItemDeductRequest(MealieModel):
+    """Deduct pantry quantities based on checked-off shopping list items."""
+
+    shopping_list_item_ids: list[UUID4]
+
+
+class PantryQuickAddItem(MealieModel):
+    """Single item to quick-add to pantry from shopping list."""
+
+    food_id: UUID4
+    quantity: float | None = None
+    unit_id: UUID4 | None = None
+
+
+class PantryQuickAddRequest(MealieModel):
+    """Bulk-create pantry items from shopping list data."""
+
+    items: list[PantryQuickAddItem]
+
+
+class OnHandCountResponse(MealieModel):
+    """Response for GET /on-hand-count."""
+
+    count: int

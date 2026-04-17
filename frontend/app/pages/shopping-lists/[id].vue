@@ -157,6 +157,16 @@
       :description="$t('shopping-list.you-are-offline-description')"
     />
 
+    <v-alert
+      v-if="showCoverageBanner"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-4"
+    >
+      {{ coverageSummary }}
+    </v-alert>
+
     <!-- Viewer -->
     <section v-if="!edit" class="py-2 d-flex flex-column ga-4">
       <!-- Create Item -->
@@ -331,6 +341,13 @@
       </section>
     </v-lazy>
     <WakelockSwitch />
+    <ShoppingListPantryDialog
+      v-model="showPantryDialog"
+      :actions="pendingActions"
+      @deduct="executeDeduct"
+      @quick-add="executeQuickAdd"
+      @dismiss="dismissPantryDialog"
+    />
   </v-container>
 </template>
 
@@ -391,6 +408,13 @@ const {
   recipeList,
   removeRecipeReferenceToList,
   addRecipeReferenceToList,
+  showCoverageBanner,
+  coverageSummary,
+  showPantryDialog,
+  pendingActions,
+  executeDeduct,
+  executeQuickAdd,
+  dismissPantryDialog,
 } = shoppingListPage;
 </script>
 

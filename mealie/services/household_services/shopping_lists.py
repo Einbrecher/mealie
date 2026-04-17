@@ -3,6 +3,7 @@ from typing import cast
 from pydantic import UUID4
 
 from mealie.core.exceptions import UnexpectedNone
+from mealie.core.root_logger import get_logger
 from mealie.repos.all_repositories import get_repositories
 from mealie.repos.repository_factory import AllRepositories
 from mealie.schema.household.group_shopping_list import (
@@ -29,6 +30,8 @@ from mealie.schema.recipe.recipe_ingredient import (
 from mealie.schema.response.pagination import OrderDirection, PaginationQuery
 from mealie.services.parser_services._base import DataMatcher
 from mealie.services.parser_services.parser_utils import UnitConverter, merge_quantity_and_unit
+
+logger = get_logger(__name__)
 
 
 class ShoppingListService:
@@ -181,7 +184,7 @@ class ShoppingListService:
 
             create_items = PantryService(self.repos).check_shopping_items(create_items)
         except Exception:
-            pass  # Pantry integration is non-critical; degrade gracefully
+            logger.warning("Pantry check_shopping_items failed", exc_info=True)
         filtered_create_items: list[ShoppingListItemCreate] = []
 
         # check to see if we can merge into any existing items

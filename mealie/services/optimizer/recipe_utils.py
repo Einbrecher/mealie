@@ -26,10 +26,8 @@ def get_ingredients_for_recipes(
         select(RecipeModel)
         .where(RecipeModel.id.in_(recipe_ids), RecipeModel.group_id == group_id)
         .options(
-            selectinload(RecipeModel.recipe_ingredient)
-            .selectinload(RecipeIngredientModel.food),
-            selectinload(RecipeModel.recipe_ingredient)
-            .selectinload(RecipeIngredientModel.unit),
+            selectinload(RecipeModel.recipe_ingredient).selectinload(RecipeIngredientModel.food),
+            selectinload(RecipeModel.recipe_ingredient).selectinload(RecipeIngredientModel.unit),
         )
     )
 

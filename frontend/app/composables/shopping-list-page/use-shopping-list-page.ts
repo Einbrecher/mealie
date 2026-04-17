@@ -6,6 +6,7 @@ import { useShoppingListLabels } from "~/composables/shopping-list-page/sub-comp
 import { useShoppingListCopy } from "~/composables/shopping-list-page/sub-composables/use-shopping-list-copy";
 import { useShoppingListCrud } from "~/composables/shopping-list-page/sub-composables/use-shopping-list-crud";
 import { useShoppingListRecipes } from "~/composables/shopping-list-page/sub-composables/use-shopping-list-recipes";
+import { useShoppingListPantry } from "~/composables/shopping-list-page/sub-composables/use-shopping-list-pantry";
 
 /**
  * Main composable that orchestrates all shopping list page functionality
@@ -57,6 +58,9 @@ export function useShoppingListPage(listId: string) {
   // Initialize copy functionality
   const copyManager = useShoppingListCopy();
 
+  // Initialize pantry integration (before CRUD so callbacks are available)
+  const pantry = useShoppingListPantry(shoppingList);
+
   // Initialize CRUD operations
   const crud = useShoppingListCrud(
     shoppingList,
@@ -66,6 +70,8 @@ export function useShoppingListPage(listId: string) {
     refresh,
     sortCheckedItems,
     updateListItemOrder,
+    pantry.onItemChecked,
+    pantry.onItemsChecked,
   );
 
   // Initialize recipe management
@@ -156,6 +162,7 @@ export function useShoppingListPage(listId: string) {
   // Lifecycle management
   onMounted(() => {
     startPolling(updateListItemOrder);
+    pantry.fetchDeficit();
   });
 
   onUnmounted(() => {
@@ -171,6 +178,7 @@ export function useShoppingListPage(listId: string) {
     ...labels,
     ...crud,
     ...recipes,
+    ...pantry,
 
     // Specialized functions
     updateIndexUncheckedByLabel,

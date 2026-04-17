@@ -21,6 +21,20 @@
           <v-icon size="64" class="mb-4 text-grey">{{ $globals.icons.foods }}</v-icon>
           <h3 class="text-h6 mb-2">{{ $t('optimizer.pantry.no-items') }}</h3>
           <p class="text-body-2 text-grey">{{ $t('optimizer.pantry.no-items-description') }}</p>
+
+          <!-- Import prompt when on-hand foods exist -->
+          <div v-if="onHandCount > 0" class="mt-4">
+            <p class="text-body-2">{{ $t('optimizer.pantry.import-available', { count: onHandCount }) }}</p>
+            <p class="text-body-2 text-grey mb-3">{{ $t('optimizer.pantry.import-prompt') }}</p>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              :loading="importing"
+              @click="onImportFromOnHand"
+            >
+              {{ $t('optimizer.pantry.import-button') }}
+            </v-btn>
+          </div>
         </v-card>
 
         <!-- Pantry items list -->
@@ -30,6 +44,7 @@
           :item="item"
           :foods="allFoods"
           :units="allUnits"
+          :warning-threshold="config?.expirationWarningDays ?? 3"
           @update="updateItem"
           @delete="confirmDelete"
         />
@@ -123,10 +138,11 @@
 </template>
 
 <script setup lang="ts">
-import type { PantryItemCreate, PantryItemOut } from "~/lib/api/types/optimizer";
+import type { OptimizerConfigOut, PantryItemCreate, PantryItemOut } from "~/lib/api/types/optimizer";
 import type { IngredientFood, IngredientUnit } from "~/lib/api/types/recipe";
 import { useUserApi } from "~/composables/api";
 import { useAsyncKey } from "~/composables/use-utils";
+import { sortByExpiration } from "~/composables/optimizer/use-expiration-helpers";
 
 const { t } = useI18n();
 useSeoMeta({ title: t('optimizer.pantry.title') });
@@ -140,6 +156,9 @@ const pantryItems = ref<PantryItemOut[]>([]);
 const showCreateDialog = ref(false);
 const showDeleteDialog = ref(false);
 const deleteTarget = ref<PantryItemOut | null>(null);
+const config = ref<OptimizerConfigOut | null>(null);
+const onHandCount = ref(0);
+const importing = ref(false);
 
 const newItem = reactive<PantryItemCreate & { food?: IngredientFood | null; unit?: IngredientUnit | null }>({
   foodId: null,
@@ -168,8 +187,28 @@ const { data: allUnits } = useAsyncData("allUnits", async () => {
 async function fetchPantryItems() {
   loading.value = true;
   const { data } = await userApi.optimizer.pantry.getAll(1, -1);
-  pantryItems.value = data?.items || [];
+  pantryItems.value = sortByExpiration(data?.items || []);
   loading.value = false;
+}
+
+async function fetchConfig() {
+  const { data } = await userApi.optimizer.config.getConfig();
+  if (data) config.value = data;
+}
+
+async function fetchOnHandCount() {
+  const { data } = await userApi.optimizer.pantry.getOnHandCount();
+  if (data) onHandCount.value = data.count;
+}
+
+async function onImportFromOnHand() {
+  importing.value = true;
+  const { data } = await userApi.optimizer.pantry.importFromOnHand();
+  if (data) {
+    await fetchPantryItems();
+    alert(t('optimizer.pantry.import-success', { imported: data.importedCount, skipped: data.skippedCount }));
+  }
+  importing.value = false;
 }
 
 // CRUD operations
@@ -227,5 +266,5 @@ function resetNewItem() {
 }
 
 // Initial fetch
-onMounted(fetchPantryItems);
+onMounted(() => Promise.all([fetchPantryItems(), fetchConfig(), fetchOnHandCount()]));
 </script>

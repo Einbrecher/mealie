@@ -13,6 +13,8 @@ export function useShoppingListCrud(
   refresh: () => void,
   sortCheckedItems: (a: ShoppingListItemOut, b: ShoppingListItemOut) => number,
   updateListItemOrder: () => void,
+  onItemChecked?: (item: ShoppingListItemOut) => void,
+  onItemsChecked?: (items: ShoppingListItemOut[]) => void,
 ) {
   const { t } = useI18n();
   const userApi = useUserApi();
@@ -36,15 +38,21 @@ export function useShoppingListCrud(
 
   // Check/Uncheck All operations
   function checkAllItems() {
-    let hasChanged = false;
+    const newlyChecked: ShoppingListItemOut[] = [];
     shoppingList.value?.listItems?.forEach((item) => {
       if (!item.checked) {
-        hasChanged = true;
         item.checked = true;
+        newlyChecked.push(item);
       }
     });
-    if (hasChanged) {
+    if (newlyChecked.length > 0) {
       updateUncheckedListItems();
+      if (onItemsChecked) {
+        const withFood = newlyChecked.filter(i => i.foodId);
+        if (withFood.length > 0) {
+          onItemsChecked(withFood);
+        }
+      }
     }
   }
 
@@ -81,6 +89,9 @@ export function useShoppingListCrud(
       return;
     }
 
+    // Capture previous checked state before updating
+    const wasChecked = shoppingList.value.listItems?.find(i => i.id === item.id)?.checked ?? false;
+
     // set a temporary updatedAt timestamp prior to refresh so it appears at the top of the checked items
     item.updatedAt = new Date().toISOString();
 
@@ -99,6 +110,11 @@ export function useShoppingListCrud(
 
     shoppingListItemActions.updateItem(item);
     updateListItemOrder();
+
+    // Fire pantry callback for newly checked items with food
+    if (item.checked && !wasChecked && item.foodId && onItemChecked) {
+      onItemChecked(item);
+    }
   }
 
   function deleteListItem(item: ShoppingListItemOut) {

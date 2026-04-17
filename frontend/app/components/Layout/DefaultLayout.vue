@@ -248,8 +248,20 @@ const topLinks = computed<SideBarLink[]>(() => [
   },
   {
     icon: $globals.icons.pantry,
-    title: "Pantry",
+    title: i18n.t("optimizer.pantry.title"),
     to: `/g/${groupSlug.value}/optimizer/pantry`,
+    restricted: true,
+  },
+  {
+    icon: $globals.icons.calendarWeek,
+    title: i18n.t("optimizer.planner.title"),
+    to: `/g/${groupSlug.value}/optimizer/planner`,
+    restricted: true,
+  },
+  {
+    icon: $globals.icons.chefHat,
+    title: i18n.t("optimizer.onboarding.setup"),
+    to: `/g/${groupSlug.value}/optimizer/setup`,
     restricted: true,
   },
   {

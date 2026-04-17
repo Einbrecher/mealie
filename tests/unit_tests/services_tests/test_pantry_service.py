@@ -1,3 +1,4 @@
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -8,7 +9,8 @@ from mealie.schema.recipe.recipe_ingredient import (
     IngredientUnit,
     RecipeIngredient,
 )
-from mealie.services.optimizer.pantry import PantryService
+from mealie.services.optimizer.pantry import DeductionItem, PantryService
+from mealie.services.parser_services.parser_utils import UnitConverter
 
 
 def _make_food(name: str = "Flour") -> IngredientFood:
@@ -405,3 +407,53 @@ class DeductRecipeTests:
         result = service.deduct_recipe([ingredient1, ingredient2])
         assert len(result) == 1
         assert result[0].quantity == 3.0  # 10 - 4 - 3 = 3
+
+
+class DeductItemsOrphanedFKTests:
+    """Pins the three skip/deduct branches at pantry.py:335–349."""
+
+    def _service(self, pantry: PantryItemOut, new_qty: float) -> PantryService:
+        service = object.__new__(PantryService)
+        service.converter = UnitConverter()
+        service.pantry_items = MagicMock()
+        service.pantry_items.update.return_value = pantry.model_copy(update={"quantity": new_qty})
+        return service
+
+    def test_orphaned_fk_skips_deduction(self):
+        """Branch A1: source unit_obj=None but original_unit_id set → orphaned FK, skip."""
+        food = _make_food()
+        pantry = _make_pantry_item(food, quantity=5.0, unit=None)
+        service = self._service(pantry, new_qty=5.0)
+        items = [DeductionItem(food.id, 3.0, None, uuid4())]
+
+        result = service._deduct_items(items, {food.id: pantry})
+
+        assert result == []
+        service.pantry_items.update.assert_not_called()
+
+    def test_both_genuinely_unitless_deducts(self):
+        """Branch A2: both unit_obj=None and original_unit_id=None → deduct unitless."""
+        food = _make_food()
+        pantry = _make_pantry_item(food, quantity=5.0, unit=None)
+        service = self._service(pantry, new_qty=2.0)
+        items = [DeductionItem(food.id, 3.0, None, None)]
+
+        result = service._deduct_items(items, {food.id: pantry})
+
+        assert len(result) == 1
+        assert result[0].quantity == 2.0
+        assert service.pantry_items.update.call_count == 1
+        assert service.pantry_items.update.call_args.args[1]["quantity"] == 2.0
+
+    def test_source_has_unit_pantry_unitless_skips(self):
+        """Branch C: source has unit but pantry.unit is None → no standard for conversion, skip."""
+        food = _make_food()
+        source_unit = _make_unit(name="cup", standard_unit="cup")
+        pantry = _make_pantry_item(food, quantity=5.0, unit=None)
+        service = self._service(pantry, new_qty=5.0)
+        items = [DeductionItem(food.id, 3.0, source_unit, source_unit.id)]
+
+        result = service._deduct_items(items, {food.id: pantry})
+
+        assert result == []
+        service.pantry_items.update.assert_not_called()

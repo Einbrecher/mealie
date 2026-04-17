@@ -1,5 +1,9 @@
 <template>
-  <v-card variant="outlined" class="mb-2">
+  <v-card
+    variant="outlined"
+    class="mb-2"
+    :style="severity !== 'none' ? { borderLeft: `4px solid rgb(var(--v-theme-${borderColor}))` } : {}"
+  >
     <v-card-text class="d-flex flex-wrap align-center" style="gap: 12px">
       <!-- Food name / custom name -->
       <div style="min-width: 200px; flex: 2">
@@ -67,6 +71,31 @@
         />
       </div>
 
+      <!-- Priority (hidden for always-available staples) -->
+      <div v-if="!editItem.assumeEnough" style="min-width: 170px">
+        <label class="text-caption text-medium-emphasis d-block mb-1">
+          {{ $t('optimizer.pantry.use-priority') }}
+        </label>
+        <v-btn-toggle
+          v-model="editItem.usePriority"
+          mandatory
+          density="compact"
+          variant="outlined"
+          color="primary"
+          @update:model-value="emitUpdate"
+        >
+          <v-btn value="auto" size="small">
+            {{ $t('optimizer.pantry.priority-auto') }}
+          </v-btn>
+          <v-btn value="high" size="small">
+            {{ $t('optimizer.pantry.priority-high') }}
+          </v-btn>
+          <v-btn value="low" size="small">
+            {{ $t('optimizer.pantry.priority-low') }}
+          </v-btn>
+        </v-btn-toggle>
+      </div>
+
       <!-- Expiration date -->
       <div style="width: 150px">
         <v-text-field
@@ -79,6 +108,17 @@
           @blur="emitUpdate"
         />
       </div>
+
+      <!-- Expiration chip -->
+      <v-chip
+        v-if="severity === 'expired' || severity === 'warning'"
+        size="small"
+        :color="borderColor"
+        variant="tonal"
+        density="compact"
+      >
+        {{ chipTextInfo ? $t(chipTextInfo.key, chipTextInfo.params ?? {}) : '' }}
+      </v-chip>
 
       <!-- Delete -->
       <v-btn
@@ -97,12 +137,16 @@
 <script setup lang="ts">
 import type { PantryItemOut } from "~/lib/api/types/optimizer";
 import type { IngredientFood, IngredientUnit } from "~/lib/api/types/recipe";
+import { daysToExpiry, expirationSeverity, expirationColor, expirationTextKey } from "~/composables/optimizer/use-expiration-helpers";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   item: PantryItemOut;
   foods: IngredientFood[];
   units: IngredientUnit[];
-}>();
+  warningThreshold?: number;
+}>(), {
+  warningThreshold: 3,
+});
 
 const emit = defineEmits<{
   (e: "update", item: PantryItemOut): void;
@@ -110,6 +154,11 @@ const emit = defineEmits<{
 }>();
 
 const editItem = reactive({ ...props.item });
+
+const itemDaysToExpiry = computed(() => daysToExpiry(editItem.expirationDate));
+const severity = computed(() => expirationSeverity(itemDaysToExpiry.value, props.warningThreshold));
+const borderColor = computed(() => expirationColor(severity.value));
+const chipTextInfo = computed(() => expirationTextKey(itemDaysToExpiry.value));
 let skipNextWatch = false;
 
 watch(
@@ -126,6 +175,7 @@ function onAssumeEnoughToggle() {
     editItem.quantity = null;
     editItem.unitId = null;
     editItem.unit = null;
+    editItem.usePriority = "auto";
   }
   emitUpdate();
 }

@@ -26,8 +26,9 @@ from mealie.db.models.household.shopping_list import (
 )
 from mealie.db.models.household.webhooks import GroupWebhooksModel
 from mealie.db.models.labels import MultiPurposeLabel
-from mealie.db.models.recipe.category import Category
+from mealie.db.models.optimizer.config import OptimizerConfigModel
 from mealie.db.models.optimizer.pantry import PantryItemModel
+from mealie.db.models.recipe.category import Category
 from mealie.db.models.recipe.comment import RecipeComment
 from mealie.db.models.recipe.ingredient import IngredientFoodModel, IngredientUnitModel
 from mealie.db.models.recipe.recipe import RecipeModel
@@ -38,6 +39,7 @@ from mealie.db.models.recipe.tool import Tool
 from mealie.db.models.users import LongLiveToken, User
 from mealie.db.models.users.password_reset import PasswordResetModel
 from mealie.db.models.users.user_to_recipe import UserToRecipe
+from mealie.repos.optimizer.config import RepositoryOptimizerConfig
 from mealie.repos.optimizer.pantry import RepositoryPantryItem
 from mealie.repos.repository_cookbooks import RepositoryCookbooks
 from mealie.repos.repository_foods import RepositoryFood
@@ -63,6 +65,7 @@ from mealie.schema.household.webhook import ReadWebhook
 from mealie.schema.labels import MultiPurposeLabelOut
 from mealie.schema.meal_plan.new_meal import ReadPlanEntry
 from mealie.schema.meal_plan.plan_rules import PlanRulesOut
+from mealie.schema.optimizer.config import OptimizerConfigOut
 from mealie.schema.optimizer.pantry import PantryItemOut
 from mealie.schema.recipe import Recipe, RecipeCommentOut, RecipeToolOut
 from mealie.schema.recipe.recipe_category import CategoryOut, TagOut
@@ -376,6 +379,17 @@ class AllRepositories:
             PK_ID,
             PantryItemModel,
             PantryItemOut,
+            group_id=self.group_id,
+            household_id=self.household_id,
+        )
+
+    @cached_property
+    def optimizer_config(self) -> RepositoryOptimizerConfig:
+        return RepositoryOptimizerConfig(
+            self.session,
+            PK_ID,
+            OptimizerConfigModel,
+            OptimizerConfigOut,
             group_id=self.group_id,
             household_id=self.household_id,
         )
