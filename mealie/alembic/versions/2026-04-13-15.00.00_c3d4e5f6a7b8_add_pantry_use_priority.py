@@ -16,13 +16,26 @@ branch_labels: str | tuple[str, ...] | None = None
 depends_on: str | tuple[str, ...] | None = None
 
 
-def upgrade():
-    op.add_column("pantry_items", sa.Column("use_priority", sa.String(), nullable=False, server_default="auto"))
-    op.create_check_constraint(
-        "pantry_item_use_priority_check", "pantry_items", "use_priority IN ('auto', 'high', 'low')"
-    )
+def upgrade() -> None:
+    with op.batch_alter_table("pantry_items") as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "use_priority",
+                sa.String(),
+                nullable=False,
+                server_default="auto",
+            )
+        )
+        batch_op.create_check_constraint(
+            "pantry_item_use_priority_check",
+            "use_priority IN ('auto', 'high', 'low')",
+        )
 
 
-def downgrade():
-    op.drop_constraint("pantry_item_use_priority_check", "pantry_items", type_="check")
-    op.drop_column("pantry_items", "use_priority")
+def downgrade() -> None:
+    with op.batch_alter_table("pantry_items") as batch_op:
+        batch_op.drop_constraint(
+            "pantry_item_use_priority_check",
+            type_="check",
+        )
+        batch_op.drop_column("use_priority")
